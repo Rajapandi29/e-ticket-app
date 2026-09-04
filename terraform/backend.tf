@@ -1,14 +1,9 @@
 terraform {
-    required_version = ">= 1.5.0"
-
-    required_providers {
-        aws = {
-            source = "hashicorp/aws"
-            version = "~> 5.0"
-        }
+    backend "s3" {
+        bucket = terraform-state-04-09
+        key    = "buckets/terraform-state"
+        region = "as-south-1"
+        encrypt = true
+        use_lockfile = true
     }
-}
-
-provider "aws" {
-    region = var.aws_region
 }
