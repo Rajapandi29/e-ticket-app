@@ -1,4 +1,4 @@
-module "eticket_vpc" {
+module "vpc" "eticket_vpc" {
   source = "git::https://github.com/Rajapandi29/terraform-modules.git//vpc?ref=v1.0.0"
 
   name = var.name
