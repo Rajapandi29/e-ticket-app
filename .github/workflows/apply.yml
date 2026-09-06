@@ -13,7 +13,6 @@ env:
 jobs:
   apply:
     name: Terraform Apply
-    working-directory: terraform
     runs-on: ubuntu-latest
 
     steps:
@@ -32,9 +31,11 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
+        working-directory: terraform
         run: terraform init
 
       - name: Terraform Validate
+        working-directory: terraform
         run: terraform validate
 
     
@@ -77,6 +78,7 @@ jobs:
           docker push "$ECR_URI:${GITHUB_SHA}"
 
       - name: Terraform Apply
+        working-directory: terraform
         run: |
           terraform apply \
             -auto-approve \

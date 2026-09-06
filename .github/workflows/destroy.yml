@@ -17,7 +17,6 @@ env:
 jobs:
   destroy:
     name: Terraform Destroy
-    working-directory: terraform
     runs-on: ubuntu-latest
 
     steps:
@@ -36,9 +35,11 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
+        working-directory: terraform
         run: terraform init
 
       - name: Terraform Validate
+        working-directory: terraform
         run: terraform validate
 
       - name: Confirm Destroy
@@ -49,6 +50,7 @@ jobs:
           fi
 
       - name: Terraform Destroy
+        working-directory: terraform
         run: |
           terraform destroy \
             -auto-approve \
