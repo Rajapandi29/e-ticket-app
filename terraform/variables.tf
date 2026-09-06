@@ -45,23 +45,23 @@ variable "desired_count" {
 }
 
 variable "cpu" {
-  description = "ECS CPU"
+  description = "ECS task CPU"
   type        = number
   default     = 256
 }
 
 variable "memory" {
-  description = "ECS memory"
+  description = "ECS task memory"
   type        = number
   default     = 512
 }
 
 variable "alert_email" {
-  description = "Email address for application alerts"
+  description = "Email address for SNS alerts"
   type        = string
 }
 
 variable "alert_phone" {
-  description = "Phone number for SNS SMS alerts in E.164 format"
+  description = "Phone number for SNS SMS alerts"
   type        = string
 }
