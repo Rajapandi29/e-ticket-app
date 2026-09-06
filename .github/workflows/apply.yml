@@ -1,7 +1,11 @@
 name: Terraform Apply
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "terraform/APPLY"
 
 permissions:
   contents: read
@@ -38,7 +42,6 @@ jobs:
         working-directory: terraform
         run: terraform validate
 
-    
       - name: Create ECR Repository
         run: |
           aws ecr describe-repositories \
@@ -50,13 +53,10 @@ jobs:
             --image-scanning-configuration scanOnPush=true \
             --region "$AWS_REGION"
 
-
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-    
       - name: Get ECR Repository URI
-        id: ecr
         run: |
           ECR_URI=$(aws ecr describe-repositories \
             --repository-names "$ECR_REPOSITORY" \
@@ -65,7 +65,6 @@ jobs:
             --output text)
 
           echo "ECR_URI=$ECR_URI" >> "$GITHUB_ENV"
-
 
       - name: Build Docker Image
         run: |
@@ -84,6 +83,6 @@ jobs:
             -auto-approve \
             -var="image_tag=${GITHUB_SHA}"
 
-     
       - name: Terraform Outputs
+        working-directory: terraform
         run: terraform output
