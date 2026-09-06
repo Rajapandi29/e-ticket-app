@@ -25,8 +25,6 @@ resource "aws_ecr_repository" "app" {
     Name = "${var.name}-repo"
   }
 }
-
-
 resource "aws_ecr_lifecycle_policy" "app" {
   repository = aws_ecr_repository.app.name
 
@@ -34,14 +32,13 @@ resource "aws_ecr_lifecycle_policy" "app" {
     rules = [
       {
         rulePriority = 1
-
-        description = "Keep latest 10 tagged images"
+        description  = "Keep latest 10 tagged images"
 
         selection = {
-          tagStatus   = "tagged"
-          tagPrefixList = [""]
-          countType   = "imageCountMoreThan"
-          countNumber = 10
+          tagStatus     = "tagged"
+          tagPatternList = ["*"]
+          countType     = "imageCountMoreThan"
+          countNumber   = 10
         }
 
         action = {
@@ -50,8 +47,7 @@ resource "aws_ecr_lifecycle_policy" "app" {
       },
       {
         rulePriority = 2
-
-        description = "Remove untagged images"
+        description  = "Remove old untagged images"
 
         selection = {
           tagStatus   = "untagged"
