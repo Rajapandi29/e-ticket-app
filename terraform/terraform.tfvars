@@ -20,7 +20,6 @@ private_subnets = [
 
 container_port = 3000
 
-image_tag = "bootstrap"
 
 desired_count = 1
 

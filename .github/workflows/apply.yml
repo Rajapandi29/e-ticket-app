@@ -16,13 +16,22 @@ env:
 
 jobs:
   apply:
-    name: Terraform Apply
+    name: Build Push Deploy
     runs-on: ubuntu-latest
 
     steps:
 
+      # ==========================
+      # CHECKOUT
+      # ==========================
+
       - name: Checkout
         uses: actions/checkout@v4
+
+
+      # ==========================
+      # AWS
+      # ==========================
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -31,30 +40,36 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+
+      # ==========================
+      # TERRAFORM
+      # ==========================
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+
 
       - name: Terraform Init
         working-directory: terraform
         run: terraform init
 
+
       - name: Terraform Validate
         working-directory: terraform
         run: terraform validate
 
-      - name: Create ECR Repository
-        run: |
-          aws ecr describe-repositories \
-            --repository-names "$ECR_REPOSITORY" \
-            --region "$AWS_REGION" \
-          || aws ecr create-repository \
-            --repository-name "$ECR_REPOSITORY" \
-            --image-tag-mutability MUTABLE \
-            --image-scanning-configuration scanOnPush=true \
-            --region "$AWS_REGION"
+
+      # ==========================
+      # ECR LOGIN
+      # ==========================
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
+
+
+      # ==========================
+      # GET ECR URI
+      # ==========================
 
       - name: Get ECR Repository URI
         run: |
@@ -66,15 +81,37 @@ jobs:
 
           echo "ECR_URI=$ECR_URI" >> "$GITHUB_ENV"
 
+          echo "ECR URI: $ECR_URI"
+
+
+      # ==========================
+      # DOCKER BUILD
+      # ==========================
+
       - name: Build Docker Image
         run: |
           docker build \
             -t "$ECR_URI:${GITHUB_SHA}" \
+            -t "$ECR_URI:latest" \
             .
+
+
+      # ==========================
+      # ECR PUSH
+      # ==========================
 
       - name: Push Docker Image
         run: |
+          echo "Pushing version tag: ${GITHUB_SHA}"
           docker push "$ECR_URI:${GITHUB_SHA}"
+
+          echo "Pushing latest tag"
+          docker push "$ECR_URI:latest"
+
+
+      # ==========================
+      # TERRAFORM APPLY
+      # ==========================
 
       - name: Terraform Apply
         working-directory: terraform
@@ -82,6 +119,36 @@ jobs:
           terraform apply \
             -auto-approve \
             -var="image_tag=${GITHUB_SHA}"
+
+
+      # ==========================
+      # ECS DEPLOYMENT
+      # ==========================
+
+      - name: Force ECS Deployment
+        run: |
+          aws ecs update-service \
+            --cluster eticket-app-cluster \
+            --service eticket-app-service \
+            --force-new-deployment \
+            --region "$AWS_REGION"
+
+
+      # ==========================
+      # WAIT FOR ECS
+      # ==========================
+
+      - name: Wait for ECS Service
+        run: |
+          aws ecs wait services-stable \
+            --cluster eticket-app-cluster \
+            --services eticket-app-service \
+            --region "$AWS_REGION"
+
+
+      # ==========================
+      # OUTPUT
+      # ==========================
 
       - name: Terraform Outputs
         working-directory: terraform
