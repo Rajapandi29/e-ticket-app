@@ -1,0 +1,87 @@
+name: Terraform Plan
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  plan:
+    name: Build Image and Terraform Plan
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+
+      - name: Set Image Tag
+        run: IMAGE_TAG=$(git rev-parse --short=7 HEAD)
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+          echo "Image Tag: $IMAGE_TAG"
+
+
+      - name: Get AWS Account ID
+        run: ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+          echo "ACCOUNT_ID=$ACCOUNT_ID" >> $GITHUB_ENV
+
+
+      - name: Set ECR Repository
+        run: echo "ECR_REPOSITORY=${{ github.event.repository.name }}-repo" >> $GITHUB_ENV
+
+
+      - name: Build Docker Image
+        run: docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ github.event.repository.name }}-repo:${IMAGE_TAG} .
+
+
+      - name: Push Docker Image
+        run: docker push ${{ steps.login-ecr.outputs.registry }}/${{ github.event.repository.name }}-repo:${IMAGE_TAG}
+
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+
+      - name: Terraform Init
+        run: terraform init
+
+
+      - name: Terraform Format Check
+        run: terraform fmt -check
+
+
+      - name: Terraform Validate
+        run: terraform validate
+
+
+      - name: Terraform Plan
+        run: terraform plan -var="image_tag=${IMAGE_TAG}" -out=tfplan
+
+
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ env.IMAGE_TAG }}
+          path: tfplan
