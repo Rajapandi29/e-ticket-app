@@ -137,6 +137,10 @@ module "alb" {
   }
 }
 
+################################################################################
+# ECS
+################################################################################
+
 module "ecs" {
   source = "git::https://github.com/Rajapandi29/terraform-modules.git//ecs?ref=v1.0.0"
 
@@ -144,6 +148,13 @@ module "ecs" {
 
   services = {
     app = {
+      # --------------------------------------------------
+      # ECS SERVICE
+      # --------------------------------------------------
+
+      create         = true
+      create_service = true
+
       name          = "${var.name}-service"
       desired_count = var.desired_count
 
@@ -152,6 +163,10 @@ module "ecs" {
 
       subnet_ids = module.vpc.private_subnets
 
+      # --------------------------------------------------
+      # SECURITY GROUP
+      # --------------------------------------------------
+
       create_security_group = true
       vpc_id                = module.vpc.vpc_id
 
@@ -159,21 +174,30 @@ module "ecs" {
         alb = {
           description                  = "Allow traffic from ALB"
           referenced_security_group_id = module.alb.security_group_id
-          from_port                    = tostring(var.container_port)
-          to_port                      = tostring(var.container_port)
-          ip_protocol                  = "tcp"
+
+          from_port = tostring(var.container_port)
+          to_port   = tostring(var.container_port)
+
+          ip_protocol = "tcp"
         }
       }
 
       security_group_egress_rules = {
         all = {
           description = "Allow all outbound traffic"
-          cidr_ipv4   = "0.0.0.0/0"
-          from_port   = "0"
-          to_port     = "0"
+
+          cidr_ipv4 = "0.0.0.0/0"
+
+          from_port = "0"
+          to_port   = "0"
+
           ip_protocol = "-1"
         }
       }
+
+      # --------------------------------------------------
+      # LOAD BALANCER
+      # --------------------------------------------------
 
       load_balancer = {
         app = {
@@ -182,6 +206,12 @@ module "ecs" {
           target_group_arn = module.alb.target_groups["app"].arn
         }
       }
+
+      # --------------------------------------------------
+      # TASK DEFINITION
+      # --------------------------------------------------
+
+      create_task_definition = true
 
       container_definitions = {
         app = {
@@ -203,10 +233,15 @@ module "ecs" {
           enable_cloudwatch_logging   = true
           create_cloudwatch_log_group = true
 
-          cloudwatch_log_group_name              = "/ecs/${var.name}"
+          cloudwatch_log_group_name = "/ecs/${var.name}"
+
           cloudwatch_log_group_retention_in_days = 7
         }
       }
+
+      # --------------------------------------------------
+      # TASK RESOURCES
+      # --------------------------------------------------
 
       cpu    = var.cpu
       memory = var.memory
@@ -216,6 +251,10 @@ module "ecs" {
       requires_compatibilities = [
         "FARGATE"
       ]
+
+      # --------------------------------------------------
+      # IAM
+      # --------------------------------------------------
 
       create_task_exec_iam_role = true
       create_tasks_iam_role     = true
