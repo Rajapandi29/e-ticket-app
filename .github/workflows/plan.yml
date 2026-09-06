@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+  pull_request:
+    branches:
+      - main
+
 permissions:
   contents: read
 
@@ -13,10 +17,11 @@ env:
 
 jobs:
   plan:
-    name: Build Image and Terraform Plan
+    name: Terraform Plan
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -27,27 +32,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Set Image Tag
-        run: |
-          IMAGE_TAG=$(git rev-parse --short=7 HEAD)
-          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
-          echo "Image Tag: $IMAGE_TAG"
-
-      - name: Build Docker Image
-        run: |
-          docker build \
-            -t ${{ steps.login-ecr.outputs.registry }}/${{ github.event.repository.name }}-repo:${IMAGE_TAG} \
-            .
-
-      - name: Push Docker Image
-        run: |
-          docker push \
-            ${{ steps.login-ecr.outputs.registry }}/${{ github.event.repository.name }}-repo:${IMAGE_TAG}
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
@@ -55,7 +39,7 @@ jobs:
         run: terraform init
 
       - name: Terraform Format Check
-        run: terraform fmt -check
+        run: terraform fmt -check -recursive
 
       - name: Terraform Validate
         run: terraform validate
@@ -63,11 +47,4 @@ jobs:
       - name: Terraform Plan
         run: |
           terraform plan \
-            -var="image_tag=${IMAGE_TAG}" \
-            -out=tfplan
-
-      - name: Upload Terraform Plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan-${{ env.IMAGE_TAG }}
-          path: tfplan
+            -var="image_tag=${GITHUB_SHA}"

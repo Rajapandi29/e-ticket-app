@@ -2,17 +2,13 @@ name: Terraform Apply
 
 on:
   workflow_dispatch:
-    inputs:
-      image_tag:
-        description: "Docker image tag (7 character Git SHA)"
-        required: true
-        type: string
 
 permissions:
   contents: read
 
 env:
   AWS_REGION: ap-south-1
+  ECR_REPOSITORY: e-ticket-app-repo
 
 jobs:
   apply:
@@ -24,7 +20,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -32,22 +27,59 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-
 
       - name: Terraform Init
         run: terraform init
 
-
       - name: Terraform Validate
         run: terraform validate
 
+      - name: Create ECR Repository
+        run: |
+          aws ecr describe-repositories \
+            --repository-names "$ECR_REPOSITORY" \
+            --region "$AWS_REGION" \
+          || aws ecr create-repository \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-tag-mutability IMMUTABLE \
+            --image-scanning-configuration scanOnPush=true \
+            --region "$AWS_REGION"
+
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+    
+      - name: Get ECR Repository URI
+        id: ecr
+        run: |
+          ECR_URI=$(aws ecr describe-repositories \
+            --repository-names "$ECR_REPOSITORY" \
+            --region "$AWS_REGION" \
+            --query 'repositories[0].repositoryUri' \
+            --output text)
+
+          echo "ECR_URI=$ECR_URI" >> "$GITHUB_ENV"
+
+      
+      - name: Build Docker Image
+        run: |
+          docker build \
+            -t "$ECR_URI:${GITHUB_SHA}" \
+            .
+
+      - name: Push Docker Image
+        run: |
+          docker push "$ECR_URI:${GITHUB_SHA}"
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve -var="image_tag=${{ inputs.image_tag }}"
+        run: |
+          terraform apply \
+            -auto-approve \
+            -var="image_tag=${GITHUB_SHA}"
 
-
+     
       - name: Terraform Outputs
         run: terraform output

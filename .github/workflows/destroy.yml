@@ -24,7 +24,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -32,14 +31,27 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-
 
       - name: Terraform Init
         run: terraform init
 
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Confirm Destroy
+        run: |
+          if [ "${{ inputs.confirm_destroy }}" != "DESTROY" ]; then
+            echo "Destroy cancelled."
+            exit 1
+          fi
 
       - name: Terraform Destroy
-        run: test "${{ inputs.confirm_destroy }}" = "DESTROY" && terraform destroy -auto-approve
+        run: |
+          terraform destroy \
+            -auto-approve \
+            -var="image_tag=dummy"
+
+      - name: Destroy Complete
+        run: echo "Terraform infrastructure destroyed successfully."
