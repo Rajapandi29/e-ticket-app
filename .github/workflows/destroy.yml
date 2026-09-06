@@ -1,12 +1,11 @@
 name: Terraform Destroy
 
 on:
-  workflow_dispatch:
-    inputs:
-      confirm_destroy:
-        description: "Type DESTROY to confirm"
-        required: true
-        type: string
+  push:
+    branches:
+      - main
+    paths:
+      - "terraform/DESTROY"
 
 permissions:
   contents: read
@@ -42,19 +41,6 @@ jobs:
         working-directory: terraform
         run: terraform validate
 
-      - name: Confirm Destroy
-        run: |
-          if [ "${{ inputs.confirm_destroy }}" != "DESTROY" ]; then
-            echo "Destroy cancelled."
-            exit 1
-          fi
-
       - name: Terraform Destroy
         working-directory: terraform
-        run: |
-          terraform destroy \
-            -auto-approve \
-            -var="image_tag=dummy"
-
-      - name: Destroy Complete
-        run: echo "Terraform infrastructure destroyed successfully."
+        run: terraform destroy -auto-approve
