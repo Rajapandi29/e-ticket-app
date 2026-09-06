@@ -79,8 +79,6 @@ module "alb" {
 
       cidr_ipv4 = "0.0.0.0/0"
 
-      from_port = "80"
-      to_port   = "80"
 
       ip_protocol = "tcp"
     }
