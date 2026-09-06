@@ -12,7 +12,7 @@ permissions:
 
 env:
   AWS_REGION: ap-south-1
-  ECR_REPOSITORY: e-ticket-app-repo
+  ECR_REPOSITORY: eticket-app-repo
 
 jobs:
   apply:
@@ -49,7 +49,7 @@ jobs:
             --region "$AWS_REGION" \
           || aws ecr create-repository \
             --repository-name "$ECR_REPOSITORY" \
-            --image-tag-mutability IMMUTABLE \
+            --image-tag-mutability MUTABLE \
             --image-scanning-configuration scanOnPush=true \
             --region "$AWS_REGION"
 
