@@ -187,7 +187,7 @@ resource "aws_lb" "app" {
     aws_security_group.alb.id
   ]
 
-  subnets = module.vpc.public_subnet_ids
+  subnets = module.vpc.public_subnets
 
   enable_deletion_protection = false
 
@@ -305,7 +305,7 @@ resource "aws_ecs_service" "app" {
   deployment_maximum_percent         = 200
 
   network_configuration {
-    subnets = module.vpc.private_subnet_ids
+    subnets = module.vpc.private_subnets
 
     security_groups = [
       aws_security_group.ecs.id
