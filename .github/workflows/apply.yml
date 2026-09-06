@@ -13,6 +13,7 @@ env:
 jobs:
   apply:
     name: Terraform Apply
+    working-directory: terraform
     runs-on: ubuntu-latest
 
     steps:
@@ -36,6 +37,7 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+    
       - name: Create ECR Repository
         run: |
           aws ecr describe-repositories \
@@ -63,7 +65,7 @@ jobs:
 
           echo "ECR_URI=$ECR_URI" >> "$GITHUB_ENV"
 
-      
+
       - name: Build Docker Image
         run: |
           docker build \

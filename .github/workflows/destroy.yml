@@ -17,6 +17,7 @@ env:
 jobs:
   destroy:
     name: Terraform Destroy
+    working-directory: terraform
     runs-on: ubuntu-latest
 
     steps:
