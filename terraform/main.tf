@@ -1,3 +1,22 @@
+terraform {
+  required_version = ">= 1.5.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+################################################################################
+# VPC
+################################################################################
+
 module "vpc" {
   source = "git::https://github.com/Rajapandi29/terraform-modules.git//vpc?ref=v1.0.0"
 
@@ -10,11 +29,49 @@ module "vpc" {
   private_subnets = var.private_subnets
 }
 
+################################################################################
+# ECR
+################################################################################
+
 module "ecr" {
   source = "git::https://github.com/Rajapandi29/terraform-modules.git//ecr?ref=v1.0.0"
 
-  name = "${var.name}-repo"
+  repository_name = "${var.name}-repo"
+
+  repository_type = "private"
+
+  repository_image_tag_mutability = "MUTABLE"
+
+  repository_image_scan_on_push = true
+
+  repository_force_delete = true
+
+  create_lifecycle_policy = true
+
+  repository_lifecycle_policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+
+        description = "Keep last 10 images"
+
+        selection = {
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = 10
+        }
+
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
 }
+
+################################################################################
+# ALB
+################################################################################
 
 module "alb" {
   source = "git::https://github.com/Rajapandi29/terraform-modules.git//alb?ref=v1.0.0"
@@ -24,14 +81,21 @@ module "alb" {
   vpc_id  = module.vpc.vpc_id
   subnets = module.vpc.public_subnets
 
+  load_balancer_type = "application"
+
+  internal = false
+
   create_security_group = true
 
   security_group_ingress_rules = {
     http = {
-      description = "Allow HTTP traffic"
-      cidr_ipv4   = "0.0.0.0/0"
-      from_port   = "80"
-      to_port     = "80"
+      description = "Allow HTTP traffic from internet"
+
+      cidr_ipv4 = "0.0.0.0/0"
+
+      from_port = "80"
+      to_port   = "80"
+
       ip_protocol = "tcp"
     }
   }
@@ -39,9 +103,12 @@ module "alb" {
   security_group_egress_rules = {
     all = {
       description = "Allow all outbound traffic"
-      cidr_ipv4   = "0.0.0.0/0"
-      from_port   = "0"
-      to_port     = "0"
+
+      cidr_ipv4 = "0.0.0.0/0"
+
+      from_port = "0"
+      to_port   = "0"
+
       ip_protocol = "-1"
     }
   }
@@ -59,12 +126,14 @@ module "alb" {
 
   target_groups = {
     app = {
-      name        = "${var.name}-tg"
+      name = "${var.name}-tg"
+
       target_type = "ip"
 
       port     = var.container_port
       protocol = "HTTP"
-      vpc_id   = module.vpc.vpc_id
+
+      vpc_id = module.vpc.vpc_id
 
       create_attachment = false
 
@@ -82,13 +151,17 @@ module "alb" {
   }
 }
 
+################################################################################
+# ECS
+################################################################################
 
 module "ecs" {
   source = "git::https://github.com/Rajapandi29/terraform-modules.git//ecs?ref=v1.0.0"
 
   services = {
     app = {
-      name          = "${var.name}-service"
+      name = "${var.name}-service"
+
       desired_count = var.desired_count
 
       launch_type = "FARGATE"
@@ -97,13 +170,18 @@ module "ecs" {
 
       subnet_ids = module.vpc.private_subnets
 
+      ##########################################################################
+      # ECS Security Group
+      ##########################################################################
+
       create_security_group = true
 
       vpc_id = module.vpc.vpc_id
 
       security_group_ingress_rules = {
         alb = {
-          description                  = "Allow traffic from ALB"
+          description = "Allow traffic from ALB"
+
           referenced_security_group_id = module.alb.security_group_id
 
           from_port = tostring(var.container_port)
@@ -126,7 +204,10 @@ module "ecs" {
         }
       }
 
-      
+      ##########################################################################
+      # ALB -> ECS
+      ##########################################################################
+
       load_balancer = {
         app = {
           container_name   = "app"
@@ -135,10 +216,16 @@ module "ecs" {
         }
       }
 
+      ##########################################################################
+      # Container
+      ##########################################################################
+
       container_definitions = {
         app = {
-          name      = "app"
-          image     = "${module.ecr.repository_url}:${var.image_tag}"
+          name = "app"
+
+          image = "${module.ecr.repository_url}:${var.image_tag}"
+
           essential = true
 
           cpu    = var.cpu
@@ -152,6 +239,10 @@ module "ecs" {
             }
           ]
 
+          ######################################################################
+          # CloudWatch Logs
+          ######################################################################
+
           enable_cloudwatch_logging   = true
           create_cloudwatch_log_group = true
 
@@ -161,7 +252,12 @@ module "ecs" {
         }
       }
 
-      cpu    = var.cpu
+      ##########################################################################
+      # Task Definition
+      ##########################################################################
+
+      cpu = var.cpu
+
       memory = var.memory
 
       network_mode = "awsvpc"
@@ -170,13 +266,20 @@ module "ecs" {
         "FARGATE"
       ]
 
-      
+      ##########################################################################
+      # IAM
+      ##########################################################################
+
       create_task_exec_iam_role = true
 
       create_tasks_iam_role = true
     }
   }
 }
+
+################################################################################
+# SNS
+################################################################################
 
 module "sns" {
   source = "git::https://github.com/Rajapandi29/terraform-modules.git//sns?ref=v1.0.0"
