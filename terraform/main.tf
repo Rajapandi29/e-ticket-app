@@ -137,14 +137,10 @@ module "alb" {
   }
 }
 
-################################################################################
-# ECS
-################################################################################
-
 module "ecs" {
   source = "git::https://github.com/Rajapandi29/terraform-modules.git//ecs?ref=v1.0.0"
 
-  name = "${var.name}-cluster"
+  cluster_name = "${var.name}-cluster"
 
   services = {
     app = {
@@ -156,43 +152,28 @@ module "ecs" {
 
       subnet_ids = module.vpc.private_subnets
 
-      ##########################################################################
-      # ECS Security Group
-      ##########################################################################
-
       create_security_group = true
-
-      vpc_id = module.vpc.vpc_id
+      vpc_id                = module.vpc.vpc_id
 
       security_group_ingress_rules = {
         alb = {
-          description = "Allow traffic from ALB"
-
+          description                  = "Allow traffic from ALB"
           referenced_security_group_id = module.alb.security_group_id
-
-          from_port = tostring(var.container_port)
-          to_port   = tostring(var.container_port)
-
-          ip_protocol = "tcp"
+          from_port                    = tostring(var.container_port)
+          to_port                      = tostring(var.container_port)
+          ip_protocol                  = "tcp"
         }
       }
 
       security_group_egress_rules = {
         all = {
           description = "Allow all outbound traffic"
-
-          cidr_ipv4 = "0.0.0.0/0"
-
-          from_port = "0"
-          to_port   = "0"
-
+          cidr_ipv4   = "0.0.0.0/0"
+          from_port   = "0"
+          to_port     = "0"
           ip_protocol = "-1"
         }
       }
-
-      ##########################################################################
-      # ALB -> ECS
-      ##########################################################################
 
       load_balancer = {
         app = {
@@ -202,16 +183,10 @@ module "ecs" {
         }
       }
 
-      ##########################################################################
-      # Container
-      ##########################################################################
-
       container_definitions = {
         app = {
-          name = "app"
-
-          image = "${module.ecr.repository_url}:${var.image_tag}"
-
+          name      = "app"
+          image     = "${module.ecr.repository_url}:${var.image_tag}"
           essential = true
 
           cpu    = var.cpu
@@ -225,25 +200,15 @@ module "ecs" {
             }
           ]
 
-          ######################################################################
-          # CloudWatch Logs
-          ######################################################################
-
           enable_cloudwatch_logging   = true
           create_cloudwatch_log_group = true
 
-          cloudwatch_log_group_name = "/ecs/${var.name}"
-
+          cloudwatch_log_group_name              = "/ecs/${var.name}"
           cloudwatch_log_group_retention_in_days = 7
         }
       }
 
-      ##########################################################################
-      # Task Definition
-      ##########################################################################
-
-      cpu = var.cpu
-
+      cpu    = var.cpu
       memory = var.memory
 
       network_mode = "awsvpc"
@@ -252,13 +217,8 @@ module "ecs" {
         "FARGATE"
       ]
 
-      ##########################################################################
-      # IAM
-      ##########################################################################
-
       create_task_exec_iam_role = true
-
-      create_tasks_iam_role = true
+      create_tasks_iam_role     = true
     }
   }
 }
