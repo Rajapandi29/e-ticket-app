@@ -144,14 +144,14 @@ module "alb" {
 module "ecs" {
   source = "git::https://github.com/Rajapandi29/terraform-modules.git//ecs?ref=v1.0.0"
 
+  name = "${var.name}-cluster"
+
   services = {
     app = {
-      name = "${var.name}-service"
-
+      name          = "${var.name}-service"
       desired_count = var.desired_count
 
-      launch_type = "FARGATE"
-
+      launch_type      = "FARGATE"
       assign_public_ip = false
 
       subnet_ids = module.vpc.private_subnets
