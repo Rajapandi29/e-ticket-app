@@ -13,6 +13,8 @@ permissions:
 env:
   AWS_REGION: ap-south-1
   ECR_REPOSITORY: eticket-app-repo
+  ECS_CLUSTER: eticket-app-cluster
+  ECS_SERVICE: eticket-app-service
 
 jobs:
   apply:
@@ -20,7 +22,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,16 +41,30 @@ jobs:
 
       - name: Terraform Init
         working-directory: terraform
-        run: terraform init
+        run: |
+          terraform init
 
 
       - name: Terraform Validate
         working-directory: terraform
-        run: terraform validate
+        run: |
+          terraform validate
 
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
+
+
+      - name: Create ECR Repository if not exists
+        run: |
+          aws ecr describe-repositories \
+            --repository-names "$ECR_REPOSITORY" \
+            --region "$AWS_REGION" \
+          || aws ecr create-repository \
+            --repository-name "$ECR_REPOSITORY" \
+            --region "$AWS_REGION" \
+            --image-tag-mutability MUTABLE \
+            --image-scanning-configuration scanOnPush=true
 
 
       - name: Get ECR Repository URI
@@ -64,6 +79,7 @@ jobs:
 
           echo "ECR URI: $ECR_URI"
 
+
       - name: Build Docker Image
         run: |
           docker build \
@@ -71,42 +87,56 @@ jobs:
             -t "$ECR_URI:latest" \
             .
 
-
-      - name: Push Docker Image
+      - name: Push Version Image
         run: |
           echo "Pushing version tag: ${GITHUB_SHA}"
-          docker push "$ECR_URI:${GITHUB_SHA}"
 
+          docker push \
+            "$ECR_URI:${GITHUB_SHA}"
+
+
+      - name: Push Latest Image
+        run: |
           echo "Pushing latest tag"
-          docker push "$ECR_URI:latest"
+
+          docker push \
+            "$ECR_URI:latest"
 
 
-     
+      - name: Terraform Plan
+        working-directory: terraform
+        run: |
+          terraform plan \
+            -var="image_tag=${GITHUB_SHA}" \
+            -out=tfplan
+
+
       - name: Terraform Apply
         working-directory: terraform
         run: |
           terraform apply \
             -auto-approve \
-            -var="image_tag=${GITHUB_SHA}"
+            tfplan
 
 
       - name: Force ECS Deployment
         run: |
           aws ecs update-service \
-            --cluster eticket-app-cluster \
-            --service eticket-app-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
             --force-new-deployment \
             --region "$AWS_REGION"
+
 
       - name: Wait for ECS Service
         run: |
           aws ecs wait services-stable \
-            --cluster eticket-app-cluster \
-            --services eticket-app-service \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
             --region "$AWS_REGION"
-
 
 
       - name: Terraform Outputs
         working-directory: terraform
-        run: terraform output
+        run: |
+          terraform output
