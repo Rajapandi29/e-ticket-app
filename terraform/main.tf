@@ -132,7 +132,7 @@ module "alb" {
 module "ecs" {
   source = "git::https://github.com/Rajapandi29/terraform-modules.git//ecs?ref=v1.0.0"
 
-  cluster_name = "demo-cluster"
+  cluster_name = "${var.name}-cluster"
 
   services = {
     app = {
