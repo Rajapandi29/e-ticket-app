@@ -149,7 +149,7 @@ module "ecs" {
 
       subnet_ids = module.vpc.private_subnets
 
-      ------------------------------------------------------------------------
+      
 
       create_security_group = true
 
