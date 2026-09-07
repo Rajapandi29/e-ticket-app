@@ -1,15 +1,9 @@
-################################################################################
-# VPC
-################################################################################
 
 output "vpc_id" {
   description = "VPC ID"
   value       = module.vpc.vpc_id
 }
 
-################################################################################
-# ECR
-################################################################################
 
 output "ecr_repository_name" {
   description = "ECR repository name"
@@ -26,9 +20,6 @@ output "ecr_repository_arn" {
   value       = module.ecr.repository_arn
 }
 
-################################################################################
-# ECS
-################################################################################
 
 output "ecs_cluster_name" {
   description = "ECS cluster name"
@@ -45,10 +36,6 @@ output "ecs_services" {
   value       = module.ecs.services
 }
 
-################################################################################
-# ALB
-################################################################################
-
 output "alb_dns_name" {
   description = "Application Load Balancer DNS name"
   value       = module.alb.dns_name
@@ -64,9 +51,6 @@ output "application_url" {
   value       = "http://${module.alb.dns_name}"
 }
 
-################################################################################
-# SNS
-################################################################################
 
 output "sns_topic_arn" {
   description = "SNS alert topic ARN"

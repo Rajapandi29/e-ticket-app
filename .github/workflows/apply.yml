@@ -21,17 +21,10 @@ jobs:
 
     steps:
 
-      # ==========================
-      # CHECKOUT
-      # ==========================
 
       - name: Checkout
         uses: actions/checkout@v4
 
-
-      # ==========================
-      # AWS
-      # ==========================
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -40,10 +33,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-
-      # ==========================
-      # TERRAFORM
-      # ==========================
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -59,17 +48,9 @@ jobs:
         run: terraform validate
 
 
-      # ==========================
-      # ECR LOGIN
-      # ==========================
-
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-
-      # ==========================
-      # GET ECR URI
-      # ==========================
 
       - name: Get ECR Repository URI
         run: |
@@ -83,11 +64,6 @@ jobs:
 
           echo "ECR URI: $ECR_URI"
 
-
-      # ==========================
-      # DOCKER BUILD
-      # ==========================
-
       - name: Build Docker Image
         run: |
           docker build \
@@ -95,10 +71,6 @@ jobs:
             -t "$ECR_URI:latest" \
             .
 
-
-      # ==========================
-      # ECR PUSH
-      # ==========================
 
       - name: Push Docker Image
         run: |
@@ -109,10 +81,7 @@ jobs:
           docker push "$ECR_URI:latest"
 
 
-      # ==========================
-      # TERRAFORM APPLY
-      # ==========================
-
+     
       - name: Terraform Apply
         working-directory: terraform
         run: |
@@ -121,10 +90,6 @@ jobs:
             -var="image_tag=${GITHUB_SHA}"
 
 
-      # ==========================
-      # ECS DEPLOYMENT
-      # ==========================
-
       - name: Force ECS Deployment
         run: |
           aws ecs update-service \
@@ -132,11 +97,6 @@ jobs:
             --service eticket-app-service \
             --force-new-deployment \
             --region "$AWS_REGION"
-
-
-      # ==========================
-      # WAIT FOR ECS
-      # ==========================
 
       - name: Wait for ECS Service
         run: |
