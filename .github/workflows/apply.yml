@@ -106,9 +106,6 @@ jobs:
             --region "$AWS_REGION"
 
 
-      # ==========================
-      # OUTPUT
-      # ==========================
 
       - name: Terraform Outputs
         working-directory: terraform
