@@ -1,23 +1,24 @@
-name: Docker build
+name: Docker Build
 
 on:
   push:
     branches:
       - main
-  
+
 env:
   AWS_REGION: ap-south-1
+  ECR_URI: ${{ secrets.ECR_URI }}
+  ECS_CLUSTER: app-cluster
+  ECS_SERVICE: eticket-app-service
+
 jobs:
   build:
     name: Build Push Deploy
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout
-        uses: actions/checkout@v4
-
-
+        uses: actions/checkout@v3
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -25,8 +26,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
+
 
       - name: Build Docker Image
         run: |
@@ -34,6 +37,7 @@ jobs:
             -t "$ECR_URI:${GITHUB_SHA}" \
             -t "$ECR_URI:latest" \
             .
+
 
       - name: Push Version Image
         run: |
@@ -49,6 +53,7 @@ jobs:
 
           docker push \
             "$ECR_URI:latest"
+
       - name: Force ECS Deployment
         run: |
           aws ecs update-service \
