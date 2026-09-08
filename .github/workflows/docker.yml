@@ -1,15 +1,10 @@
-name: Terraform Apply
+name: Docker build
 
 on:
   push:
     branches:
       - main
-    paths:
-      - "terraform/APPLY"
-
-permissions:
-  contents: read
-
+  
 env:
   AWS_REGION: ap-south-1
   ECR_REPOSITORY: eticket-app-repo
