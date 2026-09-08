@@ -7,12 +7,8 @@ on:
   
 env:
   AWS_REGION: ap-south-1
-  ECR_REPOSITORY: eticket-app-repo
-  ECS_CLUSTER: eticket-app-cluster
-  ECS_SERVICE: eticket-app-service
-
 jobs:
-  apply:
+  build:
     name: Build Push Deploy
     runs-on: ubuntu-latest
 
@@ -29,51 +25,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-
-      - name: Terraform Init
-        working-directory: terraform
-        run: |
-          terraform init
-
-
-      - name: Terraform Validate
-        working-directory: terraform
-        run: |
-          terraform validate
-
-
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
-
-
-      - name: Create ECR Repository if not exists
-        run: |
-          aws ecr describe-repositories \
-            --repository-names "$ECR_REPOSITORY" \
-            --region "$AWS_REGION" \
-          || aws ecr create-repository \
-            --repository-name "$ECR_REPOSITORY" \
-            --region "$AWS_REGION" \
-            --image-tag-mutability MUTABLE \
-            --image-scanning-configuration scanOnPush=true
-
-
-      - name: Get ECR Repository URI
-        run: |
-          ECR_URI=$(aws ecr describe-repositories \
-            --repository-names "$ECR_REPOSITORY" \
-            --region "$AWS_REGION" \
-            --query 'repositories[0].repositoryUri' \
-            --output text)
-
-          echo "ECR_URI=$ECR_URI" >> "$GITHUB_ENV"
-
-          echo "ECR URI: $ECR_URI"
-
 
       - name: Build Docker Image
         run: |
@@ -96,24 +49,6 @@ jobs:
 
           docker push \
             "$ECR_URI:latest"
-
-
-      - name: Terraform Plan
-        working-directory: terraform
-        run: |
-          terraform plan \
-            -var="image_tag=${GITHUB_SHA}" \
-            -out=tfplan
-
-
-      - name: Terraform Apply
-        working-directory: terraform
-        run: |
-          terraform apply \
-            -auto-approve \
-            tfplan
-
-
       - name: Force ECS Deployment
         run: |
           aws ecs update-service \
@@ -129,9 +64,3 @@ jobs:
             --cluster "$ECS_CLUSTER" \
             --services "$ECS_SERVICE" \
             --region "$AWS_REGION"
-
-
-      - name: Terraform Outputs
-        working-directory: terraform
-        run: |
-          terraform output
