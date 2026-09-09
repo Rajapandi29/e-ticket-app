@@ -1,4 +1,4 @@
-name: Docker Build Push Deploy
+name: ETicket Build Push Deploy
 
 on:
   push:
@@ -10,9 +10,11 @@ env:
   ECR_REPOSITORY: eticket-app-repo
   ECS_CLUSTER: app-cluster
   ECS_SERVICE: eticket-app-service
+  ECS_TASK_DEFINITION: eticket-app-service
+  CONTAINER_NAME: eticket
 
 jobs:
-  build:
+  deploy:
     name: Build Push Deploy
     runs-on: ubuntu-latest
 
@@ -21,7 +23,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -29,48 +30,66 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-
       - name: Build Docker Image
+        id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          echo "ECR Registry: $ECR_REGISTRY"
-          echo "ECR Repository: $ECR_REPOSITORY"
+          IMAGE_SHA="$ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA"
+          IMAGE_LATEST="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
-          docker build \
-            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA" \
-            -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" \
-            .
+          echo "Building image:"
+          echo "$IMAGE_SHA"
+          echo "$IMAGE_LATEST"
 
+          docker build -t "$IMAGE_SHA" .
 
-      - name: Push Docker Image
+          docker tag "$IMAGE_SHA" "$IMAGE_LATEST"
+
+          echo "image=$IMAGE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Push Docker Images
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker push \
-            "$ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA"
+          IMAGE_SHA="$ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA"
+          IMAGE_LATEST="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
-          docker push \
-            "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+          echo "Pushing SHA tag:"
+          docker push "$IMAGE_SHA"
 
+          echo "Pushing latest tag:"
+          docker push "$IMAGE_LATEST"
 
-      - name: Deploy ECS
+      - name: Get Current Task Definition
+        id: current-task
         run: |
-          aws ecs update-service \
-            --cluster "$ECS_CLUSTER" \
-            --service "$ECS_SERVICE" \
-            --force-new-deployment \
-            --region "$AWS_REGION"
+          REVISION=$(aws ecs describe-task-definition \
+            --task-definition "$ECS_TASK_DEFINITION" \
+            --query 'taskDefinition.revision' \
+            --output text)
 
+          echo "Current revision: $REVISION"
 
-      - name: Wait for ECS Service
-        run: |
-          aws ecs wait services-stable \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ECS_SERVICE" \
-            --region "$AWS_REGION"
+          echo "revision=$REVISION" >> "$GITHUB_OUTPUT"
+
+      - name: Render New Task Definition
+        id: render-task-definition
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition-family: ${{ env.ECS_TASK_DEFINITION }}
+          task-definition-revision: ${{ steps.current-task.outputs.revision }}
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy New Task Definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-task-definition.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
