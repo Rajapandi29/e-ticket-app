@@ -1,4 +1,4 @@
-name: Docker Build
+name: Docker Build Push Deploy
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 env:
   AWS_REGION: ap-south-1
-  ECR_URI: ${{ secrets.ECR_URI }}
+  ECR_REPOSITORY: eticket-app-repo
   ECS_CLUSTER: app-cluster
   ECS_SERVICE: eticket-app-service
 
@@ -17,8 +17,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -28,33 +31,35 @@ jobs:
 
 
       - name: Login to Amazon ECR
+        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
 
       - name: Build Docker Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
+          echo "ECR Registry: $ECR_REGISTRY"
+          echo "ECR Repository: $ECR_REPOSITORY"
+
           docker build \
-            -t "$ECR_URI:${GITHUB_SHA}" \
-            -t "$ECR_URI:latest" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" \
             .
 
 
-      - name: Push Version Image
+      - name: Push Docker Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          echo "Pushing version tag: ${GITHUB_SHA}"
+          docker push \
+            "$ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA"
 
           docker push \
-            "$ECR_URI:${GITHUB_SHA}"
+            "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
 
-      - name: Push Latest Image
-        run: |
-          echo "Pushing latest tag"
-
-          docker push \
-            "$ECR_URI:latest"
-
-      - name: Force ECS Deployment
+      - name: Deploy ECS
         run: |
           aws ecs update-service \
             --cluster "$ECS_CLUSTER" \
