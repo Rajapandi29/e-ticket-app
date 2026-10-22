@@ -18,3 +18,6 @@ jobs:
 
       - name: Verify Azure Login
         run: az account show
+
+      - name: List Resource Groups
+        run: az group list --output table
