@@ -55,12 +55,13 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B2A8751293E4416782E39D2DA9F898EF }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_6868FEB0749E40E6B1114D57D3BBAD17 }}
           client-secret: ${{ secrets.AZUREAPPSERVICE_CLIENTSECRET }}
+      - name: Install dependencies
+        run: npm install --production
 
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
+      - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'my-app'
-          slot-name: 'Production'
-          package: .
+          package: '.'   
+
           
