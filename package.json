@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "start": "npx serve"
+    "start": "node server.js"
   },
   "dependencies": {
     "serve": "^14.2.4"
