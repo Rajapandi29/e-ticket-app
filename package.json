@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "node server.js"
+    "start": "npx serve -l $PORT"
+  },
+  "dependencies": {
+    "serve": "^14.2.4"
   }
 }   
