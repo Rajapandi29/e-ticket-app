@@ -51,10 +51,7 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_D3AAE55A2FFF45AB99ABBC1F5998D4BF }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B2A8751293E4416782E39D2DA9F898EF }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_6868FEB0749E40E6B1114D57D3BBAD17 }}
-          client-secret: ${{ secrets.AZUREAPPSERVICE_CLIENTSECRET }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: Install dependencies
         run: npm install --production
 
